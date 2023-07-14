@@ -1,0 +1,261 @@
+---
+title: "Improvment of 211 Service Offerings"
+subtitle: "Analyzing how Findhelp can enhance their serivce offerings to better serve clients"
+author: "Group 11 (Abdulrahman Diab, Kevin Fernandes)"
+output:
+  html_document:
+    df_print: paged
+---
+
+------------------------------------------------------------------------
+
+```{r echo=FALSE, message=FALSE}
+library(tidyverse)
+library(gridExtra)
+caller_data = read.csv("./data/211 Caller Data - Toronto - Needs - 2017-2019.csv")
+injection_data= read.csv("./data/InjectionSiteData.csv")
+
+split_caller_data <- caller_data %>% 
+  separate(DateOfCall, c("date", "time"), sep = " ") %>% 
+  separate(date, c("year", "month", "day"), sep = "-") %>% 
+  separate(time, c("hour", "minute", "second"), sep =":") %>% 
+  rename(CountyName = ï..CountyName)
+
+by_month <- split_caller_data %>% 
+  group_by(year, month) %>% 
+  count() %>% 
+  arrange(year, desc(n))
+```
+
+### Introduction
+
+A city's ability to provide services to its residents is essential to quality of life. It is unrealistic to believe that every resident will know where to find every service. For that reason, companies such as Findhelp and help lines such as 211 have been put in place to give residents a central resource to find the services they need.
+
+This report aims to try and build towards an answer to the following question:
+
+> How can service offerings in Toronto be improved?
+
+This question has numerous possible lenses of analysis. However, throughout this report, we attempt to answer this question by trying to see where a need has been increasing. For that reason, we will be primarily concerned with analyzing request types.
+
+To begin, we will look at the number of requests of a certain type every year: <!-- TOTAL REQUESTS BY YEAR --><br>
+
+```{r echo=FALSE}
+split_caller_data %>% 
+group_by(Level1Name, year) %>% 
+count() %>% 
+ggplot(mapping = aes(x = Level1Name, y = n, fill = year)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+geom_bar(stat = "identity", position = "dodge")
+```
+
+While this figure does draw attention to certain request types, we believe it would be better to view them differently. Instead of looking at the total number of requests by type, we decided rather to focus on the number of requests **unmet** by type resulting in the following figure: <!-- TOTAL UNMET REQUESTS BY YEAR --><br>
+
+```{r echo=FALSE}
+split_caller_data %>% 
+filter(NeedWasMet == FALSE) %>%
+group_by(Level1Name, year) %>% 
+count() %>% 
+ggplot(mapping = aes(x = Level1Name, y = n, fill = year)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+geom_bar(stat = "identity", position = "dodge")
+```
+
+This figure gives us a much different view. The obvious most noticeable aspect is the immense amount of mental health requests unmet last year. Other request types being unmet include basic needs, health care, and organizational services. Therefore, we will focus on these 4 request types.
+
+### Level 1 Breakdown
+
+Knowing the request types we'd like to narrow in on, we recreated the 2 above figures focusing on the 4 mentioned requests. <!-- FOCUS REQUESTS BY YEAR --><br>
+
+```{r echo=FALSE}
+semi_join(split_caller_data, by_month, by = "year") %>% 
+filter(Level1Name %in% c("Basic Needs", "Health Care", "Organizational/Community/International Services","Mental Health and Substance Use Disorder Services")) %>% 
+group_by(Level1Name, year) %>% 
+count() %>% 
+ggplot(mapping = aes(x = year, y = n, fill = Level1Name)) + 
+geom_bar(stat = "identity", position = "dodge")
+```
+
+<!-- FOCUS UNMET REQUESTS BY YEAR -->
+
+<br>
+
+```{r echo=FALSE}
+semi_join(split_caller_data, by_month, by = "year") %>% 
+filter(Level1Name %in% c("Basic Needs", "Health Care", "Organizational/Community/International Services","Mental Health and Substance Use Disorder Services")) %>% 
+filter(NeedWasMet == FALSE) %>%
+group_by(Level1Name, year) %>% 
+count() %>% 
+ggplot(mapping = aes(x = year, y = n, fill = Level1Name)) + 
+geom_bar(stat = "identity", position = "dodge")
+```
+
+Again, we are clearly able to see that mental health requests need focus as they are the category with the most unmet needs. Of all unmet requests, 53% are under the category of mental health (see Appendix Listing 1).
+
+<!-- OVERALL UNMET REQUESTS -->
+
+<br>
+
+```{r echo=FALSE}
+caller_data %>% 
+group_by(Level1Name) %>%
+filter(NeedWasMet == FALSE) %>% 
+ggplot(aes(x = Level1Name)) + geom_bar(fill="cornflowerblue") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ggtitle("Number Of Needs Not Met")
+```
+
+It is now clear that we would like to focus on mental health and in particular unmet needs in the mental health and substance use sector.
+
+### Level 2 Breakdown
+
+Now knowing that mental health is seeing a lot of requests unmet, we decided to figure out where these requests are coming from. The following figure breaks down unmet requests by subcategory in mental health: <!-- MENTAL HEALTH BREAKDOWN LEVEL 2 --><br>
+
+```{r echo=FALSE}
+caller_data %>% 
+filter(Level1Name == "Mental Health and Substance Use Disorder Services") %>% 
+ggplot(aes(x = Level2Name)) + geom_bar(aes(fill = NeedWasMet)) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+It is clear that of all unmet needs in mental health, the vast majority is coming from the subcategory of substance use disorder services. In fact, after searching further, of all unmet needs in mental health 95% are under the category of substance use disorder (see Appendix Listing 2).
+
+### Level 3 Breakdown
+
+Repeating the above process, we now narrow in on substance use disorder services. We know that the vast majority of unmet mental health requests are coming from this sector so we broke this sector down: <!-- MENTAL HEALTH BREAKDOWN LEVEL 3 --><br>
+
+```{r echo=FALSE}
+caller_data %>% 
+filter(Level2Name == "Substance Use Disorder Services") %>% 
+ggplot(aes(x = Level3Name)) + geom_bar(aes(fill = NeedWasMet)) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Here, we can see that the majority of unmet requests are coming from detoxification requests. Of all substance use requests unmet, 99% are detoxification. In pure numbers, 1240 requests were unmet in the subcategory of substance use, and 1231 of those were detoxification requests (see Appendix Listing 3).
+
+Looking at a more surface level view, detoxification requests **alone** make up 50% of all unmet requests (see Appendix Listing 4).
+
+### Analysis
+
+After looking at breakdowns by level we can see that mental health (and in particular substance abuse) services have become of increasing demand. We know that over the past few years concerns regarding mental health have been growing and the data backs this. We from the very first visualization that mental health requests have been increasing in number and from the second that the number of unmet mental health requests have increased monumentally as time progresses.
+
+When it comes to mental health, different people have different ways of coping. We can see that a lot of requests unmet are coming from the subtopic of detoxification. Some people may turn to drugs as a coping mechanism and with that comes the risk of overdose and intoxication. Recently, the city has attempted to aid people who may be vulnerable by opening supervised injection sites where equipment such clean needles are provided. However, despite this effort we can still see that both the number of requests and the number of unmet requests are on the rise. <!-- DETOX REQUEST BY YEAR --><br>
+
+```{r echo=FALSE}
+split_caller_data  %>% 
+filter(Level3Name == "Detoxification") %>% 
+ggplot(aes (x = year, fill = NeedWasMet)) + geom_bar(position = position_dodge()) + ggtitle("Detoxification Requests and Status")
+```
+
+<!-- DETOX BREAKDOWN -->
+
+<br>
+
+```{r echo=FALSE}
+detox_req = split_caller_data %>% filter(Level3Name == "Detoxification") %>% group_by(Year = year) %>% summarise(Detox_Requests = n())
+detox_req_unmet = split_caller_data %>% filter(Level3Name == "Detoxification", NeedWasMet == FALSE) %>% group_by(Year = year) %>% summarise(Detox_Requests_Unmet = n())
+detox_table = inner_join(by = "Year", detox_req, detox_req_unmet)
+detox_table %>% mutate(Percent_Unmet = Detox_Requests_Unmet/Detox_Requests * 100)
+```
+
+In addition, we found that the City of Toronto documents the number of visits to supervised injection sites [1]. We first begin by looking at this data by year. <!-- INJECTION SITE VISITS BY YEAR --><br>
+
+```{r echo=FALSE}
+injection_data  %>%
+filter(Year != 2020) %>%
+group_by(Year) %>%
+ggplot(mapping = aes(x = Year, y = Visits)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+geom_bar(stat="identity", position="dodge", fill="cornflowerblue")
+```
+
+As a quick note we decided not to include 2020 (despite data being available) for 2 reasons. First the data is incomplete and does not give a view of the full picture. Secondly, due to the COVID-19 pandemic the supervised injection service was closed as of March 18, 2020 and has not since reopened.
+
+We can clearly see that visits to injection sites have been increasing. In addition to standard visits, we also looked at visits where an overdose had occured. <!-- INJECTION SITE OVERDOSE VISITS BY YEAR --><br>
+
+```{r echo=FALSE}
+injection_data  %>%
+filter(Year != 2020) %>%
+group_by(Year) %>%
+ggplot(mapping = aes(x = Year, y = Visits.Where.Overdoses.Occurred)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+geom_bar(stat="identity", position="dodge", fill="cornflowerblue")
+```
+
+It is also clear that the number of overdoses has been increasing. At this point it is obvious that these requests need attention since they have been greatly increasing in number. People won't always visit an injection site in the event of an overdose as well. Additionally, it is likely that these figures don't account for all overdoses (and by extension the need for detoxificaition). However, from what we can see this area clearly needs additional focus.
+
+Seeing that the numbers are clearly increasing despite efforts, this raises the question
+
+> Why do detoxification requests continue to go unmet
+
+We broke down detoxification requests by age and by gender and nothing of extreme significance stood out. We saw that males and females were roughly equal even as time progressed and the numbers increased (see Appendix Listing 5). Additionally, the vast majority of requests were made by adults which is to be expected (see Appendix Listing 6).
+
+We understand that at certain times Findhelp may not have been able to direct a client to a necessary service, though there could be other reasons to explore. In an article written by Drug Rehab Services Canada [2], it was mentioned that one big limitation is an inability to cost effectively recruit those who are qualified to work in centres. Issues and limitations such as costs, resources, outreach, etc. could all impact the ability of an organization to provide the services that clients need.
+
+### Conclusion
+
+By bringing to attention the above mentioned limitations, we hope to give Findhelp a sense of direction as to where they can begin looking. Obviously we are not able to tell why a certain request is going unmet from the pure numbers, though we are now able to recommend that Findhelp look into improving detoxification services. As mentioned above, Findhelp could look into better funding for this particular sector or maybe seek out those who are trained and qualified to provide this service. By doing this, the availability of services will be increased so that more people who need them can access them.
+
+In addition, we would also recommend collecting more information about these detoxification requests. This could be done by partnering and/or collecting data from injection sites as they are likely the first place people would turn to. Maybe this additional information will shine light on ways that services can be better improved and catered to those who need them.
+
+### External References/Data Sources
+
+1.  (2020, February 6). Retrieved April 4, 2020, from <https://public.tableau.com/profile/tphseu#!/vizhome/TOISDashboard_Final/ParamedicResponse>
+2.  What Are the Drug & Alcohol Detox Development and Locations in Canada? (2020, February 19). Retrieved March 25, 2020, from <https://faq.drugrehab.ca/locationsdevelopment-in-canada>
+
+### Appendix
+
+Listing 1:
+
+```{r echo=FALSE}
+all = caller_data %>% filter(NeedWasMet == FALSE) %>% count()
+mental_health = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level1Name == "Mental Health and Substance Use Disorder Services") %>% count()
+
+mental_health/all*100
+```
+
+Listing 2:
+
+```{r echo=FALSE}
+mental_health_not_met = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level1Name == "Mental Health and Substance Use Disorder Services") %>% count()
+subtance_not_met = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level2Name == "Substance Use Disorder Services") %>% count()
+
+subtance_not_met/mental_health_not_met*100
+```
+
+Listing 3:
+
+```{r echo=FALSE}
+subtance_not_met = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level2Name == "Substance Use Disorder Services") %>% count()
+detox_not_met = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level3Name == "Detoxification") %>% count()
+
+detox_not_met/subtance_not_met*100
+subtance_not_met
+detox_not_met
+```
+
+Listing 4:
+
+```{r echo=FALSE}
+all = caller_data %>% filter(NeedWasMet == FALSE) %>% count()
+detox = caller_data %>% filter(NeedWasMet == FALSE) %>% filter(Level3Name == "Detoxification") %>% count()
+
+detox/all*100
+```
+
+Listing 5: <!-- DETOX BY GENDER --><br>
+
+```{r echo=FALSE}
+semi_join(split_caller_data, by_month, by = "year") %>% 
+filter(Level3Name == "Detoxification") %>% 
+group_by(Level3Name, year, Demographics.of.Inquirer...Gender) %>% 
+count() %>% 
+ggplot(mapping = aes(x = year, y = n, fill = Demographics.of.Inquirer...Gender)) + 
+geom_bar(stat = "identity", position = "dodge")
+```
+
+Listing 6: <!-- DETOX BY AGE --><br>
+
+```{r echo=FALSE}
+semi_join(split_caller_data, by_month, by = "year") %>% 
+filter(Level3Name == "Detoxification") %>% 
+group_by(Level3Name, year, Demographics.of.Inquirer...Age.Category) %>% 
+count() %>% 
+ggplot(mapping = aes(x = year, y = n, fill = Demographics.of.Inquirer...Age.Category)) + 
+geom_bar(stat = "identity", position = "dodge")
+```
